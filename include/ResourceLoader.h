@@ -15,11 +15,6 @@ struct Resource {
         GenShader,
         HitShader,
         MissShader,
-        ShadowMissShader,
-        ProbeGenShader,
-        ProbeHitShader,
-        ProbeMissShader,
-        ProbeShadowMissShader
     };
 };
 

@@ -11,7 +11,8 @@ Camera::Camera(ScopedRefPtr<Window> window)
       mRotationSpeed(100.0f),
       mActive(false),
       mSpeedModifierActive(false),
-      mCurrentMousePos(0.0, 0.0) {
+      mCurrentMousePos(0.0, 0.0),
+      mFramesSinceMoved(0) {
     ScopedRefPtr<InputManager> inputManager = mWindow->GetInputManager();
     inputManager->Subscribe(this);
 
@@ -48,18 +49,23 @@ glm::vec3 Camera::GetForwardDir() {
 void Camera::Update(float deltaTime) {
     const glm::vec3 forwardDir = GetForwardDir();
     const float moveDelta = deltaTime * mMovementSpeed;
+    mFramesSinceMoved = mActive ? 0 : mFramesSinceMoved + 1;
     if (mKeyStates.forwardPressed) {
         mPosition += forwardDir * moveDelta;
+        mFramesSinceMoved = 0;
     }
     if (mKeyStates.backwardsPressed) {
         mPosition += -forwardDir * moveDelta;
+        mFramesSinceMoved = 0;
     }
     const glm::vec3 rightDir = glm::normalize(glm::cross(forwardDir, glm::vec3(0.0f, 1.0f, 0.0f)));
     if (mKeyStates.rightPressed) {
         mPosition += rightDir * moveDelta;
+        mFramesSinceMoved = 0;
     }
     if (mKeyStates.leftPressed) {
         mPosition += -rightDir * moveDelta;
+        mFramesSinceMoved = 0;
     }
     UpdateViewTransform();
 }

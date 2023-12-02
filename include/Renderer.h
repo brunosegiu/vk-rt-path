@@ -25,10 +25,11 @@ private:
     struct UniformData {
         glm::mat4 viewInverse;
         glm::mat4 projInverse;
+        uint32_t framesSinceMoved;
+        uint32_t randomSeed;
     };
 
     void UpdateCameraUniforms(Camera* camera);
-    void UpdateLightUniforms();
     void UpdateMaterialUniforms(const Scene::SceneMaterials& materialInfo);
 
     ScopedRefPtr<Context> mContext;
@@ -38,8 +39,6 @@ private:
 
     ScopedRefPtr<VulkanBuffer> mCameraUniformBuffer;
     ScopedRefPtr<VulkanBuffer> mSceneUniformBuffer;
-    ScopedRefPtr<VulkanBuffer> mLightMetadataUniformBuffer;
-    ScopedRefPtr<VulkanBuffer> mLightUniformBuffer;
     ScopedRefPtr<VulkanBuffer> mMaterialsBuffer;
 
     ScopedRefPtr<Pipeline> mMainPassPipeline;
@@ -47,11 +46,6 @@ private:
     vk::DescriptorSet mDescriptorSet;
 
     vk::Sampler mTextureSampler;
-
-    ScopedRefPtr<Pipeline> mProbeUpdatePipeline;
-    ScopedRefPtr<ProbeGrid> mProbeGrid;
-    vk::DescriptorPool mProbeDescriptorPool;
-    vk::DescriptorSet mProbeDescriptorSet;
 };
 
 }  // namespace VKRT

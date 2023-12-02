@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+#include <random>
+
 #include "DebugUtils.h"
 #include "Texture.h"
 
@@ -23,13 +25,6 @@ Renderer::Renderer(ScopedRefPtr<Context> context, ScopedRefPtr<Scene> scene)
                 .type = vk::DescriptorType::eStorageBuffer,
                 .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
             Pipeline::Descriptor{
-                .type = vk::DescriptorType::eUniformBuffer,
-                .stageFlags =
-                    vk::ShaderStageFlagBits::eClosestHitKHR | vk::ShaderStageFlagBits::eMissKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eStorageBuffer,
-                .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
-            Pipeline::Descriptor{
                 .type = vk::DescriptorType::eSampler,
                 .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
             Pipeline::Descriptor{
@@ -46,59 +41,10 @@ Renderer::Renderer(ScopedRefPtr<Context> context, ScopedRefPtr<Scene> scene)
             {RayTracingStage::Generate, Resource::Id::GenShader},
             {RayTracingStage::Hit, Resource::Id::HitShader},
             {RayTracingStage::Miss, Resource::Id::MissShader},
-            {RayTracingStage::ShadowMiss, Resource::Id::ShadowMissShader},
         };
 
         mMainPassPipeline = new Pipeline(context, descriptors, stages);
     }
-
-    {
-        std::vector<Pipeline::Descriptor> descriptors{
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eAccelerationStructureKHR,
-                .stageFlags =
-                    vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eStorageImage,
-                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eUniformBuffer,
-                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eStorageBuffer,
-                .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eUniformBuffer,
-                .stageFlags =
-                    vk::ShaderStageFlagBits::eClosestHitKHR | vk::ShaderStageFlagBits::eMissKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eStorageBuffer,
-                .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eSampler,
-                .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eStorageBuffer,
-                .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR},
-            Pipeline::Descriptor{
-                .type = vk::DescriptorType::eSampledImage,
-                .stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR,
-                .count = MaxBoundTextures,
-                .variableCount = true},
-        };
-
-        std::unordered_map<RayTracingStage, Resource::Id> stages{
-            {RayTracingStage::Generate, Resource::Id::ProbeGenShader},
-            {RayTracingStage::Hit, Resource::Id::ProbeHitShader},
-            {RayTracingStage::Miss, Resource::Id::ProbeMissShader},
-            {RayTracingStage::ShadowMiss, Resource::Id::ProbeShadowMissShader},
-        };
-
-        mProbeUpdatePipeline = new Pipeline(context, descriptors, stages);
-
-        mProbeGrid = new ProbeGrid(context);
-    }
-
     CreateStorageImage();
     CreateUniformBuffer();
     CreateMaterialUniforms();
@@ -159,45 +105,6 @@ void Renderer::CreateUniformBuffer() {
             buffer);
         mSceneUniformBuffer->UnmapBuffer();
     }
-
-    {
-        const std::vector<Light::Proxy> lightProxies = mScene->GetLightDescriptions();
-        {
-            mLightMetadataUniformBuffer = mContext->GetDevice()->CreateBuffer(
-                sizeof(LightMetadata),
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
-            uint8_t* buffer = mLightMetadataUniformBuffer->MapBuffer();
-            auto sunIt = std::find_if(
-                lightProxies.begin(),
-                lightProxies.end(),
-                [](const Light::Proxy& proxy) { return proxy.type == Light::Type::Directional; });
-            glm::vec3 sunDirection = sunIt != lightProxies.end() ? sunIt->directionOrPosition
-                                                                 : glm::vec3(0.0f, -1.0f, 0.0f);
-            LightMetadata data{
-                .lightCount = static_cast<uint32_t>(lightProxies.size()),
-                .sunDir = sunDirection,
-            };
-            std::copy_n(reinterpret_cast<const uint8_t*>(&data), sizeof(LightMetadata), buffer);
-            mLightMetadataUniformBuffer->UnmapBuffer();
-        }
-
-        {
-            const size_t lightProxiesBufferSize = sizeof(Light::Proxy) * lightProxies.size();
-            mLightUniformBuffer = mContext->GetDevice()->CreateBuffer(
-                lightProxiesBufferSize,
-                vk::BufferUsageFlagBits::eStorageBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
-            uint8_t* buffer = mLightUniformBuffer->MapBuffer();
-            std::copy_n(
-                reinterpret_cast<const uint8_t*>(lightProxies.data()),
-                lightProxiesBufferSize,
-                buffer);
-            mLightUniformBuffer->UnmapBuffer();
-        }
-    }
 }
 
 void Renderer::CreateMaterialUniforms() {
@@ -225,62 +132,17 @@ void Renderer::CreateMaterialUniforms() {
 
 void Renderer::UpdateCameraUniforms(Camera* camera) {
     uint8_t* buffer = mCameraUniformBuffer->MapBuffer();
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<double> dis(0.0, std::numeric_limits<uint32_t>::max());
     UniformData cameraMatrices{
         .viewInverse = glm::inverse(camera->GetViewTransform()),
-        .projInverse = glm::inverse(camera->GetProjectionTransform())};
+        .projInverse = glm::inverse(camera->GetProjectionTransform()),
+        .framesSinceMoved = camera->GetFramesSinceMoved(),
+        .randomSeed = static_cast<uint32_t>(dis(gen))
+    };
     std::copy_n(reinterpret_cast<uint8_t*>(&cameraMatrices), sizeof(UniformData), buffer);
     mCameraUniformBuffer->UnmapBuffer();
-}
-
-void Renderer::UpdateLightUniforms() {
-    const std::vector<Light::Proxy> lightProxies = mScene->GetLightDescriptions();
-    {
-        uint8_t* buffer = mLightMetadataUniformBuffer->MapBuffer();
-        auto sunIt =
-            std::find_if(lightProxies.begin(), lightProxies.end(), [](const Light::Proxy& proxy) {
-                return proxy.type == Light::Type::Directional;
-            });
-        glm::vec3 sunDirection =
-            sunIt != lightProxies.end() ? sunIt->directionOrPosition : glm::vec3(0.0f, -1.0f, 0.0f);
-        LightMetadata data{
-            .lightCount = static_cast<uint32_t>(lightProxies.size()),
-            .sunDir = sunDirection,
-        };
-        std::copy_n(reinterpret_cast<const uint8_t*>(&data), sizeof(LightMetadata), buffer);
-        mLightMetadataUniformBuffer->UnmapBuffer();
-    }
-
-    {
-        const size_t lightProxiesBufferSize = sizeof(Light::Proxy) * lightProxies.size();
-        if (lightProxiesBufferSize != mLightUniformBuffer->GetBufferSize()) {
-            mLightUniformBuffer = mContext->GetDevice()->CreateBuffer(
-                lightProxiesBufferSize,
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
-            uint8_t* buffer = mLightUniformBuffer->MapBuffer();
-            std::copy_n(
-                reinterpret_cast<const uint8_t*>(lightProxies.data()),
-                lightProxiesBufferSize,
-                buffer);
-            mLightUniformBuffer->UnmapBuffer();
-            vk::WriteDescriptorSet lightUniformBufferWrite =
-                vk::WriteDescriptorSet()
-                    .setDstSet(mDescriptorSet)
-                    .setDstBinding(5)
-                    .setDescriptorCount(1)
-                    .setDescriptorType(vk::DescriptorType::eStorageBuffer)
-                    .setBufferInfo(mLightUniformBuffer->GetDescriptorInfo());
-            vk::Device& logicalDevice = mContext->GetDevice()->GetLogicalDevice();
-            logicalDevice.updateDescriptorSets(lightUniformBufferWrite, nullptr);
-        }
-        uint8_t* buffer = mLightUniformBuffer->MapBuffer();
-        std::copy_n(
-            reinterpret_cast<const uint8_t*>(lightProxies.data()),
-            lightProxiesBufferSize,
-            buffer);
-        mLightUniformBuffer->UnmapBuffer();
-    }
 }
 
 void Renderer::UpdateMaterialUniforms(const Scene::SceneMaterials& materialInfo) {
@@ -328,29 +190,6 @@ void Renderer::CreateDescriptors(const Scene::SceneMaterials& materialInfo) {
                                             mContext->GetDevice()->GetDispatcher()))
                              .front();
     }
-
-    {
-        vk::DescriptorPoolCreateInfo poolCreateInfo =
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(mProbeUpdatePipeline->GetDescriptorSizes())
-                .setMaxSets(1);
-        mProbeDescriptorPool = VKRT_ASSERT_VK(logicalDevice.createDescriptorPool(poolCreateInfo));
-
-        std::vector<uint32_t> descriptorCounts{static_cast<uint32_t>(materialInfo.textures.size())};
-        vk::DescriptorSetVariableDescriptorCountAllocateInfo dynamicCountInfo =
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo().setDescriptorCounts(
-                descriptorCounts);
-
-        vk::DescriptorSetAllocateInfo descriptorAllocateInfo =
-            vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(mProbeDescriptorPool)
-                .setSetLayouts(mProbeUpdatePipeline->GetDescriptorLayout())
-                .setPNext(&dynamicCountInfo);
-        mProbeDescriptorSet = VKRT_ASSERT_VK(logicalDevice.allocateDescriptorSets(
-                                                 descriptorAllocateInfo,
-                                                 mContext->GetDevice()->GetDispatcher()))
-                                  .front();
-    }
 }
 
 void Renderer::UpdateDescriptors(const Scene::SceneMaterials& materialInfo) {
@@ -393,26 +232,10 @@ void Renderer::UpdateDescriptors(const Scene::SceneMaterials& materialInfo) {
             .setDescriptorType(vk::DescriptorType::eStorageBuffer)
             .setBufferInfo(mSceneUniformBuffer->GetDescriptorInfo());
 
-    vk::WriteDescriptorSet lightMetadataUniformBufferWrite =
-        vk::WriteDescriptorSet()
-            .setDstSet(mDescriptorSet)
-            .setDstBinding(4)
-            .setDescriptorCount(1)
-            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-            .setBufferInfo(mLightMetadataUniformBuffer->GetDescriptorInfo());
-
-    vk::WriteDescriptorSet lightUniformBufferWrite =
-        vk::WriteDescriptorSet()
-            .setDstSet(mDescriptorSet)
-            .setDstBinding(5)
-            .setDescriptorCount(1)
-            .setDescriptorType(vk::DescriptorType::eStorageBuffer)
-            .setBufferInfo(mLightUniformBuffer->GetDescriptorInfo());
-
     auto sampler = vk::DescriptorImageInfo().setSampler(mTextureSampler);
     vk::WriteDescriptorSet samplerWrite = vk::WriteDescriptorSet()
                                               .setDstSet(mDescriptorSet)
-                                              .setDstBinding(6)
+                                              .setDstBinding(4)
                                               .setDescriptorCount(1)
                                               .setDescriptorType(vk::DescriptorType::eSampler)
                                               .setImageInfo(sampler);
@@ -420,7 +243,7 @@ void Renderer::UpdateDescriptors(const Scene::SceneMaterials& materialInfo) {
     vk::WriteDescriptorSet materialsWrite =
         vk::WriteDescriptorSet()
             .setDstSet(mDescriptorSet)
-            .setDstBinding(7)
+            .setDstBinding(5)
             .setDescriptorCount(1)
             .setDescriptorType(vk::DescriptorType::eStorageBuffer)
             .setBufferInfo(mMaterialsBuffer->GetDescriptorInfo());
@@ -435,7 +258,7 @@ void Renderer::UpdateDescriptors(const Scene::SceneMaterials& materialInfo) {
 
     vk::WriteDescriptorSet texturesWrite = vk::WriteDescriptorSet()
                                                .setDstSet(mDescriptorSet)
-                                               .setDstBinding(8)
+                                               .setDstBinding(6)
                                                .setDescriptorType(vk::DescriptorType::eSampledImage)
                                                .setImageInfo(imageInfos)
                                                .setDstArrayElement(0)
@@ -447,57 +270,11 @@ void Renderer::UpdateDescriptors(const Scene::SceneMaterials& materialInfo) {
         imageWrite,
         cameraUniformBufferWrite,
         sceneUniformBufferWrite,
-        lightMetadataUniformBufferWrite,
-        lightUniformBufferWrite,
         samplerWrite,
         materialsWrite,
         texturesWrite};
 
     logicalDevice.updateDescriptorSets(writeDescriptorSets, {});
-
-    {
-        accelerationStructureWrite.setDstSet(mProbeDescriptorSet);
-
-        vk::DescriptorImageInfo storageImageInfo =
-            vk::DescriptorImageInfo()
-                .setImageView(mProbeGrid->GetTexture()->GetImageView())
-                .setImageLayout(vk::ImageLayout::eGeneral);
-        vk::WriteDescriptorSet imageWrite =
-            vk::WriteDescriptorSet()
-                .setDstSet(mProbeDescriptorSet)
-                .setDstBinding(1)
-                .setDescriptorCount(1)
-                .setDescriptorType(vk::DescriptorType::eStorageImage)
-                .setImageInfo(storageImageInfo);
-
-        vk::WriteDescriptorSet probeGridUniformBuffer =
-            vk::WriteDescriptorSet()
-                .setDstSet(mProbeDescriptorSet)
-                .setDstBinding(2)
-                .setDescriptorCount(1)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setBufferInfo(mProbeGrid->GetDescriptionBuffer()->GetDescriptorInfo());
-
-        sceneUniformBufferWrite.setDstSet(mProbeDescriptorSet);
-        lightMetadataUniformBufferWrite.setDstSet(mProbeDescriptorSet);
-        lightUniformBufferWrite.setDstSet(mProbeDescriptorSet);
-        samplerWrite.setDstSet(mProbeDescriptorSet);
-        materialsWrite.setDstSet(mProbeDescriptorSet);
-        texturesWrite.setDstSet(mProbeDescriptorSet);
-
-        std::vector<vk::WriteDescriptorSet> probeWriteDescriptorSets{
-            accelerationStructureWrite,
-            imageWrite,
-            probeGridUniformBuffer,
-            sceneUniformBufferWrite,
-            lightMetadataUniformBufferWrite,
-            lightUniformBufferWrite,
-            samplerWrite,
-            materialsWrite,
-            texturesWrite};
-
-        logicalDevice.updateDescriptorSets(probeWriteDescriptorSets, {});
-    }
 }
 
 void Renderer::Render(Camera* camera) {
@@ -512,52 +289,10 @@ void Renderer::Render(Camera* camera) {
             Scene::SceneMaterials materials = mScene->GetMaterialProxies();
             UpdateMaterialUniforms(materials);
             UpdateCameraUniforms(camera);
-            mProbeGrid->UpdateData();
-            UpdateLightUniforms();
             if (!mDescriptorSet) {
                 CreateDescriptors(materials);
             }
             UpdateDescriptors(materials);
-        }
-
-        // Update all probes
-        {
-            mProbeGrid->GetTexture()->SetImageLayout(
-                commandBuffer,
-                vk::ImageLayout::eUndefined,
-                vk::ImageLayout::eGeneral,
-                vk::PipelineStageFlagBits::eAllCommands,
-                vk::PipelineStageFlagBits::eAllCommands);
-
-            commandBuffer.bindPipeline(
-                vk::PipelineBindPoint::eRayTracingKHR,
-                mProbeUpdatePipeline->GetPipelineHandle());
-
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eRayTracingKHR,
-                mProbeUpdatePipeline->GetPipelineLayout(),
-                0,
-                mProbeDescriptorSet,
-                nullptr);
-
-            const Pipeline::RayTracingTablesRef& tableRef = mProbeUpdatePipeline->GetTablesRef();
-            const glm::uvec3 dispatchDimensions = mProbeGrid->GetDispatchDimensions();
-            commandBuffer.traceRaysKHR(
-                tableRef.rayGen,
-                tableRef.rayMiss,
-                tableRef.rayHit,
-                tableRef.callable,
-                dispatchDimensions.x,
-                dispatchDimensions.y,
-                dispatchDimensions.z,
-                mContext->GetDevice()->GetDispatcher());
-
-            mProbeGrid->GetTexture()->SetImageLayout(
-                commandBuffer,
-                vk::ImageLayout::eGeneral,
-                vk::ImageLayout::eShaderReadOnlyOptimal,
-                vk::PipelineStageFlagBits::eAllCommands,
-                vk::PipelineStageFlagBits::eAllCommands);
         }
 
         const vk::Extent2D& imageSize = mContext->GetSwapchain()->GetExtent();
@@ -667,7 +402,6 @@ void Renderer::Render(Camera* camera) {
 Renderer::~Renderer() {
     vk::Device& logicalDevice = mContext->GetDevice()->GetLogicalDevice();
     logicalDevice.destroyDescriptorPool(mDescriptorPool);
-    logicalDevice.destroyDescriptorPool(mProbeDescriptorPool);
     logicalDevice.destroySampler(mTextureSampler);
 }
 

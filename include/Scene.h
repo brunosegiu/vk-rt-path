@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include "Light.h"
 #include "Object.h"
 #include "RefCountPtr.h"
 #include "VulkanBase.h"
@@ -17,15 +16,14 @@ public:
     Scene(ScopedRefPtr<Context> context);
 
     void AddObject(ScopedRefPtr<Object> object);
-    void AddLight(ScopedRefPtr<Light> light);
 
     const vk::AccelerationStructureKHR& GetTLAS() const { return mTLAS; }
 
     std::vector<Mesh::Description> GetDescriptions();
-    std::vector<Light::Proxy> GetLightDescriptions();
 
     struct MaterialProxy {
         glm::vec3 albedo;
+        glm::vec3 emissive;
         float roughness;
         float metallic;
         float indexOfRefraction;
@@ -46,12 +44,13 @@ private:
     ScopedRefPtr<Context> mContext;
 
     std::vector<ScopedRefPtr<Object>> mObjects;
-    std::vector<ScopedRefPtr<Light>> mLights;
 
     ScopedRefPtr<VulkanBuffer> mInstanceBuffer;
     ScopedRefPtr<VulkanBuffer> mTLASBuffer;
     ScopedRefPtr<VulkanBuffer> mScratchBuffer;
     vk::AccelerationStructureKHR mTLAS;
     vk::DeviceAddress mTLASAddress;
+
+    ScopedRefPtr<Texture> mDummyTexture;
 };
 }  // namespace VKRT

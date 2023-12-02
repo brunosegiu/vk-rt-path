@@ -66,14 +66,12 @@ Pipeline::Pipeline(
         {RayTracingStage::Generate, vk::ShaderStageFlagBits::eRaygenKHR},
         {RayTracingStage::Hit, vk::ShaderStageFlagBits::eClosestHitKHR},
         {RayTracingStage::Miss, vk::ShaderStageFlagBits::eMissKHR},
-        {RayTracingStage::ShadowMiss, vk::ShaderStageFlagBits::eMissKHR},
     };
 
-    std::array<RayTracingStage, 4> stageOrder{
+    std::array<RayTracingStage, 3> stageOrder{
         RayTracingStage::Generate,
         RayTracingStage::Hit,
         RayTracingStage::Miss,
-        RayTracingStage::ShadowMiss,
     };
 
     std::vector<vk::PipelineShaderStageCreateInfo> stageCreateInfos;
@@ -165,9 +163,6 @@ Pipeline::Pipeline(
     if (mShaders.find(RayTracingStage::Miss) != mShaders.end()) {
         ++missTableCount;
     }
-    if (mShaders.find(RayTracingStage::ShadowMiss) != mShaders.end()) {
-        ++missTableCount;
-    }
 
     {
         mRayMissTable = mContext->GetDevice()->CreateBuffer(
@@ -178,7 +173,7 @@ Pipeline::Pipeline(
             vk::MemoryAllocateFlagBits::eDeviceAddress);
         uint8_t* rayMissTableData = mRayMissTable->MapBuffer();
         std::copy_n(
-            shaderHandleStorage.begin() + mHandleSizeAligned * missTableCount,
+            shaderHandleStorage.begin() + mHandleSizeAligned * (missTableCount + 1),
             mHandleSize * missTableCount,
             rayMissTableData);
         mRayMissTable->UnmapBuffer();

@@ -20,6 +20,7 @@ public:
 
     Material(
         const glm::vec3& albedo,
+        const glm::vec3& emissive,
         float roughness,
         float metallic,
         float indexOfRefraction,
@@ -27,6 +28,7 @@ public:
         ScopedRefPtr<Texture> roughnessTexture = nullptr);
 
     const glm::vec3 GetAlbedo() const { return mAlbedo; }
+    const glm::vec3 GetEmissive() const { return mEmissive; }
     const float GetRoughness() const { return mRoughness; }
     const float GetMetallic() const { return mMetallic; }
     const float GetIndexOfRefraction() const { return mIndexOfRefraction; }
@@ -34,6 +36,7 @@ public:
     const ScopedRefPtr<Texture> GetRoughnessTexture() const { return mRoughnessTexture; }
 
     void SetAlbedo(const glm::vec3& albedo) { mAlbedo = albedo; }
+    void SetEmissive(const glm::vec3& emissive) { mEmissive = emissive; }
     void SetRoughness(float roughness) { mRoughness = roughness; }
     void SetMetallic(float metallic) { mMetallic = metallic; }
     void SetIndexOfRefraction(float indexOfRefraction) { mIndexOfRefraction = indexOfRefraction; }
@@ -42,6 +45,7 @@ public:
 
 private:
     glm::vec3 mAlbedo;
+    glm::vec3 mEmissive;
     float mRoughness;
     float mMetallic;
     float mIndexOfRefraction;

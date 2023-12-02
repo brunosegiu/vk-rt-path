@@ -20,6 +20,7 @@ public:
     glm::vec3 GetForwardDir();
     const glm::mat4& GetViewTransform() { return mViewTransform; }
     const glm::mat4& GetProjectionTransform() { return mProjectionTransform; }
+    const uint32_t GetFramesSinceMoved() const { return mFramesSinceMoved; }
 
     ~Camera();
 
@@ -54,6 +55,7 @@ private:
     glm::vec2 mCurrentMousePos;
     bool mActive;
     bool mSpeedModifierActive;
+    uint32_t mFramesSinceMoved;
 };
 
 }  // namespace VKRT

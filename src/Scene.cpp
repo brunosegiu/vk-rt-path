@@ -7,17 +7,15 @@
 namespace VKRT {
 
 Scene::Scene(ScopedRefPtr<Context> context)
-    : mContext(context), mObjects(), mInstanceBuffer(nullptr), mTLASBuffer(nullptr) {}
+    : mContext(context), mObjects(), mInstanceBuffer(nullptr), mTLASBuffer(nullptr) {
+    uint64_t dummyData = 0;
+    mDummyTexture =
+        new Texture(context, 1, 1, vk::Format::eR8G8B8A8Unorm, reinterpret_cast<uint8_t*>(&dummyData), 4);
+}
 
 void Scene::AddObject(ScopedRefPtr<Object> object) {
     if (object != nullptr) {
         mObjects.emplace_back(object);
-    }
-}
-
-void Scene::AddLight(ScopedRefPtr<Light> light) {
-    if (light != nullptr) {
-        mLights.emplace_back(light);
     }
 }
 
@@ -30,18 +28,11 @@ std::vector<Mesh::Description> Scene::GetDescriptions() {
     return descriptions;
 }
 
-std::vector<Light::Proxy> Scene::GetLightDescriptions() {
-    std::vector<Light::Proxy> proxies;
-    for (const ScopedRefPtr<Light>& light : mLights) {
-        proxies.push_back(light->GetProxy());
-    }
-    return proxies;
-}
-
 Scene::SceneMaterials Scene::GetMaterialProxies() {
     // Gather textures first
     std::vector<std::pair<ScopedRefPtr<Texture>, int32_t>> textureIndices;
-    int32_t currentTextureIndex = 0;
+    textureIndices.push_back({mDummyTexture, 1});
+    int32_t currentTextureIndex = 1;
     for (const ScopedRefPtr<Object>& object : mObjects) {
         for (const ScopedRefPtr<Mesh>& mesh : object->GetModel()->GetMeshes()) {
             const Material* material = mesh->GetMaterial();
@@ -71,6 +62,7 @@ Scene::SceneMaterials Scene::GetMaterialProxies() {
             const ScopedRefPtr<Material> material = mesh->GetMaterial();
             MaterialProxy proxy{
                 .albedo = material->GetAlbedo(),
+                .emissive = material->GetEmissive(),
                 .roughness = material->GetRoughness(),
                 .metallic = material->GetMetallic(),
                 .indexOfRefraction = material->GetIndexOfRefraction(),

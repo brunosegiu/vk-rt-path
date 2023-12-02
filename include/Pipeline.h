@@ -14,7 +14,7 @@ namespace VKRT {
 
 class Context;
 
-enum class RayTracingStage { Generate = 0, Hit, Miss, ShadowMiss };
+enum class RayTracingStage { Generate = 0, Hit, Miss };
 
 class Pipeline : public RefCountPtr {
 public:

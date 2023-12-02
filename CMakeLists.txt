@@ -31,12 +31,9 @@ set(HEADERS
     include/Renderer.h
     include/Camera.h
     include/InputManager.h
-    include/Light.h
     include/Texture.h
     include/Material.h
     include/Mesh.h
-    include/ProbeGrid.h
-    include/Pipeline.h
 )
 
 set(SOURCE
@@ -55,11 +52,9 @@ set(SOURCE
     src/Renderer.cpp
     src/Camera.cpp
     src/InputManager.cpp
-    src/Light.cpp
     src/Texture.cpp
     src/Material.cpp
     src/Mesh.cpp
-    src/ProbeGrid.cpp
     src/Pipeline.cpp
 )
 
@@ -68,18 +63,12 @@ set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADER_HEADERS 
     definitions.glsl
     proceduralSky.glsl
-    equirectangularProjection.glsl
 )
 
 set(SHADERS
     raytrace.rgen
     raytrace.rchit
     raytrace.rmiss
-    raytraceShadow.rmiss
-    raytraceProbe.rgen
-    raytraceProbe.rchit
-    raytraceProbe.rmiss
-    raytraceProbeShadow.rmiss
 )
 
 if(WIN32)
@@ -189,6 +178,9 @@ foreach(SHADER ${SHADERS})
         DEPENDS ${DEPENDENCY_LIST}
     )
 endforeach()
+
+# Copy assets
+file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 
 add_custom_target(${SHADER_DEPENDENCIES} DEPENDS ${COMPILED_SHADERS})
 

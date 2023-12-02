@@ -187,6 +187,7 @@ Model* Model::Load(ScopedRefPtr<Context> context, const std::string& path) {
 
                     material = new Material(
                         albedo,
+                        glm::vec3(0.0f),
                         roughness,
                         0.0f,
                         -1.0f,

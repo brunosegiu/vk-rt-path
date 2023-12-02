@@ -5,17 +5,9 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "definitions.glsl"
-#include "proceduralSky.glsl"
-
-layout(binding = 4, set = 0, scalar) uniform LightMetadata {
-    uint lightCount;
-    vec3 sunDirection;
-}
-lightMetadata;
 
 layout(location = ColorPayloadIndex) rayPayloadInEXT RayPayload rayPayload;
 
 void main() {
-    ProceduralSkyShaderParameters params = initSkyShaderParameters(-lightMetadata.sunDirection.xyz);
-    rayPayload.color += getProceduralSkyColor(params, gl_WorldRayDirectionEXT, 0);
+    rayPayload.depth = -1;
 }

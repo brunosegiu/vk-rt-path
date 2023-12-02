@@ -31,42 +31,28 @@ int main() {
         VKRT_ASSERT_MSG(contextResult == Result::Success, "No compatible GPU found");
         if (contextResult == Result::Success) {
             ScopedRefPtr<Scene> scene = new Scene(context);
-#if defined(VKRT_PLATFORM_WINDOWS)
-            std::string userDir = std::getenv("USERPROFILE");
-#elif defined(VKRT_PLATFORM_LINUX)
-            std::string userDir = std::getenv("HOME");
-#endif
-            ScopedRefPtr<Model> helmetModel =
-                Model::Load(context, userDir + "/assets/DamagedHelmet.glb");
-            ScopedRefPtr<Model> sponzaModel =
-                Model::Load(context, userDir + "/assets/sponza_b.gltf");
-            ScopedRefPtr<Model> venusModel = Model::Load(context, userDir + "/assets/venus.gltf");
-            ScopedRefPtr<Model> deerModel = Model::Load(context, userDir + "/assets/deer.gltf");
 
             std::vector<ScopedRefPtr<Model>> cubes{
-                Model::Load(context, userDir + "/assets/cube.gltf"),
-                Model::Load(context, userDir + "/assets/cube.gltf"),
-                Model::Load(context, userDir + "/assets/cube.gltf"),
+                Model::Load(context, "./assets/sphere.glb"),
+                Model::Load(context, "./assets/sphere.glb"),
+                Model::Load(context, "./assets/sphere.glb"),
             };
 
             std::vector<ScopedRefPtr<Model>> spheres{
-                Model::Load(context, userDir + "/assets/sphere.gltf"),
-                Model::Load(context, userDir + "/assets/sphere.gltf"),
-                Model::Load(context, userDir + "/assets/sphere.gltf"),
+                Model::Load(context, "./assets/sphere.glb"),
+                Model::Load(context, "./assets/sphere.glb"),
+                Model::Load(context, "./assets/sphere.glb"),
             };
 
-            std::for_each(
-                venusModel->GetMeshes().begin(),
-                venusModel->GetMeshes().end(),
-                [](Mesh* mesh) {
-                    mesh->GetMaterial()->SetMetallic(1.0f);
-                    mesh->GetMaterial()->SetRoughness(0.0f);
-                });
+            ScopedRefPtr<Model> sphere = Model::Load(context, "./assets/cube.glb");
+            std::for_each(sphere->GetMeshes().begin(), sphere->GetMeshes().end(), [](Mesh* mesh) {
+                mesh->GetMaterial()->SetEmissive(glm::vec3(1.0f));
+            });
 
-            std::for_each(
-                deerModel->GetMeshes().begin(),
-                deerModel->GetMeshes().end(),
-                [](Mesh* mesh) { mesh->GetMaterial()->SetIndexOfRefraction(1.5f); });
+            ScopedRefPtr<Model> ground = Model::Load(context, "./assets/box.glb");
+            std::for_each(ground->GetMeshes().begin(), ground->GetMeshes().end(), [](Mesh* mesh) {
+                mesh->GetMaterial()->SetAlbedo(glm::vec3(0.5f));
+            });
 
             std::for_each(
                 cubes[0]->GetMeshes().begin(),
@@ -100,10 +86,7 @@ int main() {
             std::for_each(
                 spheres[1]->GetMeshes().begin(),
                 spheres[1]->GetMeshes().end(),
-                [](Mesh* mesh) {
-                    mesh->GetMaterial()->SetMetallic(1.0f);
-                    mesh->GetMaterial()->SetRoughness(0.0f);
-                });
+                [](Mesh* mesh) { mesh->GetMaterial()->SetAlbedo(glm::vec3(0.4f, 0.0f, 1.0f)); });
 
             std::for_each(
                 spheres[2]->GetMeshes().begin(),
@@ -111,60 +94,66 @@ int main() {
                 [](Mesh* mesh) { mesh->GetMaterial()->SetIndexOfRefraction(1.8f); });
 
             ScopedRefPtr<Camera> camera = new Camera(window);
-            camera->SetTranslation(glm::vec3(-2.0f, -4.0f, 0.0f));
-            camera->SetRotation(glm::vec3(0.0f, 180.0f, 0.0f));
-
-            ScopedRefPtr<DirectionalLight> light = new DirectionalLight();
-            light->SetIntensity(0.8f);
-
-            ScopedRefPtr<PointLight> pointLight = new PointLight();
-            pointLight->SetIntensity(30.0f);
-            pointLight->SetPosition(glm::vec3(0.0f, 80.3f, -3.0f));
-
-            ScopedRefPtr<Object> helmet = new Object(helmetModel);
-            helmet->SetTranslation(glm::vec3(4.0f, 3.0f, 0.0f));
-            helmet->Rotate(glm::vec3(90.0f, 0.0f, 0.0f));
-            helmet->SetScale(glm::vec3(1.5f));
-
-            ScopedRefPtr<Object> deer = new Object(deerModel);
-            deer->SetTranslation(glm::vec3(-4.0f, 3.0f, 0.0f));
-            deer->SetScale(glm::vec3(.7f));
-
-            ScopedRefPtr<Object> venus = new Object(venusModel);
-            venus->SetTranslation(glm::vec3(0.0f, 3.0f, 0.0f));
-            venus->SetScale(glm::vec3(0.5f));
-            venus->Rotate(glm::vec3(90.0f, 0.0f, 0.0f));
-
-            ScopedRefPtr<Object> sponza = new Object(sponzaModel);
-            sponza->Rotate(glm::vec3(90.0f, 0.0f, 0.0f));
-            sponza->SetScale(glm::vec3(0.03f));
+            camera->SetTranslation(glm::vec3(-8.0f, -5.0f, 0.0f));
+            camera->SetRotation(glm::vec3(0.0f, -90.0f, 0.0f));
 
             float offset = 0.0f;
             for (const auto& cube : cubes) {
                 ScopedRefPtr<Object> cubeObject = new Object(cube);
-                cubeObject->SetTranslation(glm::vec3(-20.0f, 2.0f, 2.0f - offset));
-                cubeObject->SetScale(glm::vec3(0.3f));
+                cubeObject->SetTranslation(glm::vec3(0.0f, 2.0f, 3.0f - offset));
+                cubeObject->SetScale(glm::vec3(0.75));
                 cubeObject->Rotate(glm::vec3(0.0f, offset * 20, 0.0f));
-                scene->AddObject(cubeObject);
+               // scene->AddObject(cubeObject);
                 offset += 3.0f;
             }
 
             offset = 0.0f;
             for (const auto& sphere : spheres) {
                 ScopedRefPtr<Object> object = new Object(sphere);
-                object->SetTranslation(glm::vec3(-20.0f, 4.0f, 2.0f - offset));
-                object->SetScale(glm::vec3(0.75f));
-                scene->AddObject(object);
+                object->SetTranslation(glm::vec3(1.0f, 6.0f, 3.0f - offset));
+                object->SetScale(glm::vec3(0.75));
+               // scene->AddObject(object);
                 offset += 3.0f;
             }
 
-            scene->AddObject(helmet);
-            scene->AddObject(venus);
-            scene->AddObject(deer);
-            scene->AddObject(sponza);
+            ScopedRefPtr<Object> lightObj = new Object(sphere);
+            lightObj->SetTranslation(glm::vec3(5.0f, 9.5f, 0.0f));
+            lightObj->SetScale(glm::vec3(1.0f, 0.1f, 1.0f));
+            scene->AddObject(lightObj);
 
-            scene->AddLight(light);
-            scene->AddLight(pointLight);
+            ScopedRefPtr<Object> groundObj = new Object(ground);
+            groundObj->SetTranslation(glm::vec3(1.0f, 5.0f, 0.0f));
+            groundObj->SetScale(glm::vec3(5.0f, 5.0f, 4.0f));
+            groundObj->Rotate(glm::vec3(0.0f, 90.0f, 0.0f));
+            scene->AddObject(groundObj);
+
+            {
+                ScopedRefPtr<Model> dragon = Model::Load(context, "./assets/DragonAttenuation.glb");
+                std::for_each(
+                    sphere->GetMeshes().begin(),
+                    sphere->GetMeshes().end(),
+                    [](Mesh* mesh) {  });
+                ScopedRefPtr<Object> dragonObj = new Object(dragon);
+                dragonObj->SetTranslation(glm::vec3(0.0f, 0.0f, 0.0f));
+                dragonObj->SetScale(glm::vec3(5.0f, 7.5f, 3.0f));
+                dragonObj->Rotate(glm::vec3(0.0f, 90.0f, 0.0f));
+                scene->AddObject(dragonObj);
+            }
+
+            {
+                ScopedRefPtr<Model> mesh = Model::Load(context, "./assets/venus.gltf");
+                std::for_each(
+                    sphere->GetMeshes().begin(),
+                    sphere->GetMeshes().end(),
+                    [](Mesh* mesh) {
+                        mesh->GetMaterial()->SetAlbedo(glm::vec3(0.9f, 0.87f, 0.8f));
+                    });
+                ScopedRefPtr<Object> object = new Object(mesh);
+                object->SetTranslation(glm::vec3(2.5f, 3.5f, 0.0f));
+                object->SetScale(glm::vec3(0.6f));
+                object->Rotate(glm::vec3(90.0f, 90.0f, 0.0f));
+                scene->AddObject(object);
+            }
 
             ScopedRefPtr<Renderer> renderer = new Renderer(context, scene);
             Timer timer;
@@ -173,13 +162,6 @@ int main() {
             while (window->Update()) {
                 timer.Start();
                 {
-                    light->SetDirection(
-                        glm::normalize(glm::vec3(0.2f, -1.0f, 0.2 * cos(totalSeconds / 2.0f))));
-                    pointLight->SetPosition(glm::vec3(-35.0f, 3.0f, 5.5f * cos(totalSeconds)));
-                    helmet->Rotate(glm::vec3(0.0f, elapsedSeconds * 30.0f, 0.0f));
-                    venus->Rotate(glm::vec3(0.0f, elapsedSeconds * 30.0f, 0.0f));
-                    deer->Rotate(glm::vec3(0.0f, elapsedSeconds * 30.0f, 0.0f));
-                    deer->SetTranslation(glm::vec3(4.0f, 3.0f, 2.0f * cos(totalSeconds)));
                     camera->Update(elapsedSeconds);
                     renderer->Render(camera);
                 }
