@@ -7,6 +7,8 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "definitions.glsl"
+#include "random.glsl"
+#include "pbr.glsl"
 
 layout(location = ColorPayloadIndex) rayPayloadInEXT RayPayload rayPayload;
 layout(location = ShadowPayloadIndex) rayPayloadEXT float shadowAttenuation;
@@ -88,20 +90,65 @@ void getRoughnessAndMetallic(
 }
 
 void main() {
-    if (rayPayload.depth > MaxRecursionLevel) {
-        rayPayload.depth = -1;
-        return;
-    }
-
     rayPayload.depth += 1;
 
     const Vertex vertex = unpackInstanceVertex(gl_InstanceCustomIndexEXT);
     const Material material = unpackInstanceMaterial(gl_InstanceCustomIndexEXT);
 
     const vec3 albedo = getAlbedo(material, vertex.texCoord);
+    float roughness, metallic;
+    getRoughnessAndMetallic(material, vertex.texCoord, roughness, metallic);
 
-    rayPayload.hitPointPosition = vertex.position;
-    rayPayload.hitPointNormal = vertex.normal;
-    rayPayload.hitPointColor = albedo;
-    rayPayload.hitPointLight = material.emissive;
+    rayPayload.radiance += material.emissive * rayPayload.color;
+    rayPayload.color *= albedo;
+
+    vec3 origin = vertex.position;
+    float diffuseRatio = 1.0f - metallic;
+    float transmissionRatio = material.transmission;
+    
+    vec3 direction;
+    if (random01(rayPayload.randomSeed) <= transmissionRatio) {
+        const float nDotD = dot(vertex.normal, gl_WorldRayDirectionEXT);
+        vec3 refrNormal;
+        float refrEta;
+        if (nDotD > 0.0f) {
+            refrNormal = -vertex.normal;
+            refrEta = material.indexOfRefraction;
+        } else {
+            refrNormal = vertex.normal;
+            refrEta = 1.0f / material.indexOfRefraction;
+        }
+        float fresnelTerm = fresnel(gl_WorldRayDirectionEXT, vertex.normal, material.indexOfRefraction);
+        
+        direction = reflect(gl_WorldRayDirectionEXT, vertex.normal);
+        if (random01(rayPayload.randomSeed) <= fresnelTerm) {
+            direction = reflect(gl_WorldRayDirectionEXT, vertex.normal);
+        } else {
+            origin += -refrNormal * TMin;
+            direction = refract(gl_WorldRayDirectionEXT, refrNormal, refrEta);
+        }
+    } else if (random01(rayPayload.randomSeed) <= diffuseRatio) {
+        direction =
+            sampleInCosineWeighedHemisphere(vertex.normal, rayPayload.pixelUV, random01(rayPayload.randomSeed));
+    } else {
+        direction = reflect(gl_WorldRayDirectionEXT, vertex.normal);
+    }
+
+    if (rayPayload.depth > MaxRecursionLevel) {
+        rayPayload.depth = -1;
+        return;
+    }
+
+    traceRayEXT(
+        topLevelAS,
+        gl_RayFlagsOpaqueEXT,
+        AllMask,
+        DefaultSBTOffset,
+        DefaultSBTStride,
+        ColorMissIndex,
+        origin,
+        TMin,
+        direction,
+        TMax,
+        ColorPayloadIndex);
 }

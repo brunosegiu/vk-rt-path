@@ -26,6 +26,7 @@ public:
         glm::vec3 emissive;
         float roughness;
         float metallic;
+        float transmission;
         float indexOfRefraction;
         int32_t albedoTextureIndex;
         int32_t roughnessTextureIndex;

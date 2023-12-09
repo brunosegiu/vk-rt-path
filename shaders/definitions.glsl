@@ -17,11 +17,9 @@ const float Bias = 0.01;
 
 const float Pi = 3.14159265359;
 
-const uint MaxRecursionLevel = 4;
+const uint MaxRecursionLevel = 8;
 
-const uint MaxBounces = 5;
-
-const uint RaysPerPixel = 10;
+const uint RaysPerPixel = 100;
 
 const uint MaxUInt = 0xFFFFFFFF;
 
@@ -45,15 +43,23 @@ struct Material {
     vec3 emissive;
     float roughness;
     float metallic;
+    float transmission;
     float indexOfRefraction;
     int albedoTextureIndex;
     int roughnessTextureIndex;
 };
 
+struct MaterialProperties {
+    vec3 albedo;
+    vec3 emissive;
+    float metallic;
+    float roughness;
+};
+
 struct RayPayload {
-    vec3 hitPointPosition;
-    vec3 hitPointNormal;
-    vec3 hitPointColor;
-    vec3 hitPointLight;
+    vec3 radiance;
+    vec3 color;
+    vec2 pixelUV;
     int depth;
+    uint randomSeed;
 };

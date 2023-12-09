@@ -9,8 +9,13 @@ namespace VKRT {
 Scene::Scene(ScopedRefPtr<Context> context)
     : mContext(context), mObjects(), mInstanceBuffer(nullptr), mTLASBuffer(nullptr) {
     uint64_t dummyData = 0;
-    mDummyTexture =
-        new Texture(context, 1, 1, vk::Format::eR8G8B8A8Unorm, reinterpret_cast<uint8_t*>(&dummyData), 4);
+    mDummyTexture = new Texture(
+        context,
+        1,
+        1,
+        vk::Format::eR8G8B8A8Unorm,
+        reinterpret_cast<uint8_t*>(&dummyData),
+        4);
 }
 
 void Scene::AddObject(ScopedRefPtr<Object> object) {
@@ -65,6 +70,7 @@ Scene::SceneMaterials Scene::GetMaterialProxies() {
                 .emissive = material->GetEmissive(),
                 .roughness = material->GetRoughness(),
                 .metallic = material->GetMetallic(),
+                .transmission = material->GetTransmission(),
                 .indexOfRefraction = material->GetIndexOfRefraction(),
                 .albedoTextureIndex = -1,
                 .roughnessTextureIndex = -1,

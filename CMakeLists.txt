@@ -63,6 +63,8 @@ set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADER_HEADERS 
     definitions.glsl
     proceduralSky.glsl
+    random.glsl
+    pbr.glsl
 )
 
 set(SHADERS
