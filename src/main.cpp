@@ -33,14 +33,14 @@ int main() {
             ScopedRefPtr<Scene> scene = new Scene(context);
 
             {
-                ScopedRefPtr<Model> cube = Model::Load(context, "./assets/cube.glb");
+                ScopedRefPtr<Model> cube = Model::Load(context, "./assets/sphere.gltf");
                 std::for_each(cube->GetMeshes().begin(), cube->GetMeshes().end(), [](Mesh* mesh) {
-                    mesh->GetMaterial()->SetEmissive(glm::vec3(10.0f));
+                    mesh->GetMaterial()->SetEmissive(glm::vec3(7.5f));
                 });
 
                 ScopedRefPtr<Object> lightObj = new Object(cube);
                 lightObj->SetTranslation(glm::vec3(5.0f, 9.5f, 0.0f));
-                lightObj->SetScale(glm::vec3(1.0f, 0.1f, 1.0f));
+                lightObj->SetScale(glm::vec3(2.0f, 0.3f, 2.0f));
                 scene->AddObject(lightObj);
             }
 
@@ -50,12 +50,12 @@ int main() {
                     boxMesh->GetMeshes().begin(),
                     boxMesh->GetMeshes().end(),
                     [](Mesh* mesh) {
-                        mesh->GetMaterial()->SetAlbedo(glm::vec3(1.0f, 0.0f, 0.0f));
+                        mesh->GetMaterial()->SetAlbedo(glm::vec3(0.5f, 0.5f, 0.75f));
                     });
 
                 ScopedRefPtr<Object> boxObj = new Object(boxMesh);
-                boxObj->SetTranslation(glm::vec3(1.0f, 5.0f, 0.0f));
-                boxObj->SetScale(glm::vec3(5.0f, 5.0f, 5.0f));
+                boxObj->SetTranslation(glm::vec3(0.0f, 5.0f, 0.0f));
+                boxObj->SetScale(glm::vec3(7.5f, 5.0f, 7.5f));
                 boxObj->Rotate(glm::vec3(0.0f, 90.0f, 0.0f));
                 scene->AddObject(boxObj);
             }
@@ -67,8 +67,8 @@ int main() {
                     dragon->GetMeshes().end(),
                     [](Mesh* mesh) { mesh->GetMaterial()->SetMetallic(0.0f); });
                 ScopedRefPtr<Object> dragonObj = new Object(dragon);
-                dragonObj->SetTranslation(glm::vec3(0.0f, 0.0f, 0.0f));
-                dragonObj->SetScale(glm::vec3(5.0f, 7.5f, 3.0f));
+                dragonObj->SetTranslation(glm::vec3(0.0f, 0.0f, 0.5f));
+                dragonObj->SetScale(glm::vec3(6.0f, 7.5f, 4.0f));
                 dragonObj->Rotate(glm::vec3(0.0f, 90.0f, 0.0f));
                 scene->AddObject(dragonObj);
             }
@@ -79,36 +79,37 @@ int main() {
                     mesh->GetMaterial()->SetAlbedo(glm::vec3(0.9f, 0.87f, 0.8f));
                 });
                 ScopedRefPtr<Object> object = new Object(mesh);
-                object->SetTranslation(glm::vec3(2.5f, 3.5f, 0.0f));
+                object->SetTranslation(glm::vec3(3.0f, 3.5f, 0.0f));
                 object->SetScale(glm::vec3(0.6f));
                 object->Rotate(glm::vec3(90.0f, 90.0f, 0.0f));
                 scene->AddObject(object);
             }
 
             {
-                ScopedRefPtr<Model> mesh = Model::Load(context, "./assets/venus.gltf");
-                std::for_each(mesh->GetMeshes().begin(), mesh->GetMeshes().end(), [](Mesh* mesh) {
-                    mesh->GetMaterial()->SetAlbedo(glm::vec3(1.0f));
-                    mesh->GetMaterial()->SetTransmission(1.0f);
-                    mesh->GetMaterial()->SetIndexOfRefraction(1.8f);
-                });
-                ScopedRefPtr<Object> object = new Object(mesh);
-                object->SetTranslation(glm::vec3(2.5f, 3.5f, 3.0f));
-                object->SetScale(glm::vec3(0.6f));
-                object->Rotate(glm::vec3(90.0f, 90.0f, 0.0f));
-                scene->AddObject(object);
-            }
-
-            {
-                ScopedRefPtr<Model> mesh = Model::Load(context, "./assets/venus.gltf");
+                ScopedRefPtr<Model> mesh = Model::Load(context, "./assets/bunny.glb");
                 std::for_each(mesh->GetMeshes().begin(), mesh->GetMeshes().end(), [](Mesh* mesh) {
                     mesh->GetMaterial()->SetAlbedo(glm::vec3(1.0f));
                     mesh->GetMaterial()->SetMetallic(1.0f);
                 });
                 ScopedRefPtr<Object> object = new Object(mesh);
-                object->SetTranslation(glm::vec3(2.5f, 3.5f, -3.0f));
-                object->SetScale(glm::vec3(0.6f));
-                object->Rotate(glm::vec3(90.0f, 90.0f, 0.0f));
+                object->SetTranslation(glm::vec3(2.0f, 0.0f, 3.5f));
+                object->SetScale(glm::vec3(0.05f));
+                object->Rotate(glm::vec3(270.0f, 90.0f, 0.0f));
+                scene->AddObject(object);
+            }
+
+            {
+                ScopedRefPtr<Model> mesh = Model::Load(context, "./assets/utahTeapot.glb");
+                std::for_each(mesh->GetMeshes().begin(), mesh->GetMeshes().end(), [](Mesh* mesh) {
+                    mesh->GetMaterial()->SetAlbedo(glm::vec3(1.0f));
+                    mesh->GetMaterial()->SetTransmission(1.0f);
+                    mesh->GetMaterial()->SetMetallic(0.0f);
+                    mesh->GetMaterial()->SetIndexOfRefraction(2.2f);
+                });
+                ScopedRefPtr<Object> object = new Object(mesh);
+                object->SetTranslation(glm::vec3(2.5f, 2.5f, -3.5f));
+                object->SetScale(glm::vec3(1.025f));
+                object->Rotate(glm::vec3(0.0f, -90.0f, 0.0f));
                 scene->AddObject(object);
             }
 

@@ -7,7 +7,9 @@
 
 namespace VKRT {
 Renderer::Renderer(ScopedRefPtr<Context> context, ScopedRefPtr<Scene> scene)
-    : mContext(context), mScene(scene) {
+    : mContext(context), mScene(scene), mCurrentMode(Renderer::Mode::Realtime), mCurrentTile(0) {
+    ScopedRefPtr<InputManager> inputManager = mContext->GetWindow()->GetInputManager();
+    inputManager->Subscribe(this);
     constexpr uint32_t MaxBoundTextures = 64;
     {
         std::vector<Pipeline::Descriptor> descriptors{
@@ -86,7 +88,7 @@ struct LightMetadata {
 void Renderer::CreateUniformBuffer() {
     {
         mCameraUniformBuffer = mContext->GetDevice()->CreateBuffer(
-            sizeof(UniformData),
+            sizeof(CameraProperties),
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
     }
@@ -135,13 +137,19 @@ void Renderer::UpdateCameraUniforms(Camera* camera) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_real_distribution<double> dis(0.0, std::numeric_limits<uint32_t>::max());
-    UniformData cameraMatrices{
+    CameraProperties cameraMatrices{
         .viewInverse = glm::inverse(camera->GetViewTransform()),
         .projInverse = glm::inverse(camera->GetProjectionTransform()),
         .framesSinceMoved = camera->GetFramesSinceMoved(),
-        .randomSeed = static_cast<uint32_t>(dis(gen))
+        .randomSeed = static_cast<uint32_t>(dis(gen)),
+        .currentMode = static_cast<uint32_t>(mCurrentMode),
+        .currentTile = mCurrentTile,
+        .tileSize = mCurrentMode == Renderer::Mode::Realtime
+                        ? 1
+                        : mContext->GetSwapchain()->GetExtent().height / TileCount,
+        .tileCount = TileCount
     };
-    std::copy_n(reinterpret_cast<uint8_t*>(&cameraMatrices), sizeof(UniformData), buffer);
+    std::copy_n(reinterpret_cast<uint8_t*>(&cameraMatrices), sizeof(CameraProperties), buffer);
     mCameraUniformBuffer->UnmapBuffer();
 }
 
@@ -298,7 +306,7 @@ void Renderer::Render(Camera* camera) {
         const vk::Extent2D& imageSize = mContext->GetSwapchain()->GetExtent();
 
         // Main pass, render to image
-        {
+        if (mCurrentMode == Renderer::Mode::Realtime || mCurrentTile < TileCount) {
             commandBuffer.bindPipeline(
                 vk::PipelineBindPoint::eRayTracingKHR,
                 mMainPassPipeline->GetPipelineHandle());
@@ -316,9 +324,16 @@ void Renderer::Render(Camera* camera) {
                 tableRef.rayHit,
                 tableRef.callable,
                 imageSize.width,
-                imageSize.height,
+                mCurrentMode == Renderer::Mode::Realtime ? imageSize.height
+                                                         : imageSize.height / TileCount,
                 1,
                 mContext->GetDevice()->GetDispatcher());
+
+            if (mCurrentMode == Renderer::Mode::FinalRender) {
+                ++mCurrentTile;
+            } else {
+                mCurrentTile = 0;
+            }
         }
 
         // Copy redered image to swapchain
@@ -350,6 +365,7 @@ void Renderer::Render(Camera* camera) {
                         vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1))
                     .setDstOffset(vk::Offset3D(0, 0, 0))
                     .setExtent(vk::Extent3D(imageSize.width, imageSize.height, 1));
+
             commandBuffer.copyImage(
                 mStorageTexture->GetImage(),
                 vk::ImageLayout::eTransferSrcOptimal,
@@ -371,7 +387,7 @@ void Renderer::Render(Camera* camera) {
                 vk::PipelineStageFlagBits::eAllCommands,
                 vk::PipelineStageFlagBits::eAllCommands);
         }
-
+        
         VKRT_ASSERT_VK(commandBuffer.end());
     }
 
@@ -399,10 +415,31 @@ void Renderer::Render(Camera* camera) {
     mContext->GetDevice()->DestroyCommand(commandBuffer);
 }
 
+void Renderer::OnKeyPressed(int key) {
+    if (key == GLFW_KEY_R) {
+        mCurrentMode = mCurrentMode == Renderer::Mode::Realtime ? Renderer::Mode::FinalRender
+                                                                : Renderer::Mode::Realtime;
+    }
+}
+
+void Renderer::OnKeyReleased(int key) {}
+
+void Renderer::OnMouseMoved(glm::vec2 newPos) {}
+
+void Renderer::OnLeftMouseButtonPressed() {}
+
+void Renderer::OnLeftMouseButtonReleased() {}
+
+void Renderer::OnRightMouseButtonPressed() {}
+
+void Renderer::OnRightMouseButtonReleased() {}
+
 Renderer::~Renderer() {
     vk::Device& logicalDevice = mContext->GetDevice()->GetLogicalDevice();
     logicalDevice.destroyDescriptorPool(mDescriptorPool);
     logicalDevice.destroySampler(mTextureSampler);
+    ScopedRefPtr<InputManager> inputManager = mContext->GetWindow()->GetInputManager();
+    inputManager->Unsuscribe(this);
 }
 
 }  // namespace VKRT

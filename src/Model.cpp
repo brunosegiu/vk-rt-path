@@ -38,11 +38,12 @@ Model* Model::Load(ScopedRefPtr<Context> context, const std::string& path) {
                 const std::string texCoordName = "TEXCOORD_0";
 
                 const std::map<std::string, int>& attributes = primitive.attributes;
-                const bool hasAttributes = attributes.find(positionName) != attributes.end() &&
-                                           attributes.find(normalName) != attributes.end() &&
-                                           attributes.find(texCoordName) != attributes.end();
+                const bool hasPositionAndNormals =
+                    attributes.find(positionName) != attributes.end() &&
+                    attributes.find(normalName) != attributes.end();
+                const bool hasTexCoords = attributes.find(texCoordName) != attributes.end();
 
-                if (!hasAttributes) {
+                if (!hasPositionAndNormals) {
                     return nullptr;
                 }
 
@@ -92,10 +93,12 @@ Model* Model::Load(ScopedRefPtr<Context> context, const std::string& path) {
                     }
                 }
 
-                const tinygltf::Accessor& texCoordAccessor =
-                    model.accessors[attributes.at(texCoordName)];
-                std::vector<glm::vec2> texCoords(texCoordAccessor.count);
-                {
+                std::vector<glm::vec2> texCoords;
+                if (hasTexCoords) {
+                    const tinygltf::Accessor& texCoordAccessor =
+                        model.accessors[attributes.at(texCoordName)];
+                    texCoords = std::vector<glm::vec2>(texCoordAccessor.count);
+
                     const tinygltf::BufferView& texCoordBufferView =
                         model.bufferViews[texCoordAccessor.bufferView];
                     const tinygltf::Buffer& texCoordBuffer =
@@ -113,6 +116,8 @@ Model* Model::Load(ScopedRefPtr<Context> context, const std::string& path) {
                         texCoords[texCoordIndex] =
                             glm::vec2(texCoordDataFloat[0], texCoordDataFloat[1]);
                     }
+                } else {
+                    texCoords = std::vector<glm::vec2>(positionAccessor.count, glm::vec2(0.0f));
                 }
 
                 std::vector<Mesh::Vertex> vertices;
@@ -134,12 +139,24 @@ Model* Model::Load(ScopedRefPtr<Context> context, const std::string& path) {
                     const tinygltf::Buffer& indexBuffer = model.buffers[indexBufferView.buffer];
                     const size_t indexOffset =
                         indexBufferView.byteOffset + indexAccessor.byteOffset;
-                    const uint16_t* pIndexData =
+                    const uint16_t* pIndexData16Bit =
                         reinterpret_cast<const uint16_t*>(&indexBuffer.data[indexOffset]);
+                    const uint32_t* pIndexData32Bit =
+                        reinterpret_cast<const uint32_t*>(&indexBuffer.data[indexOffset]);
                     indices.reserve(indexCount / 3);
                     for (uint32_t i = 0; i < indexCount; i += 3) {
-                        const glm::uvec3 triangle =
-                            glm::uvec3(pIndexData[i], pIndexData[i + 1], pIndexData[i + 2]);
+                        glm::uvec3 triangle;
+                        if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+                            triangle = glm::uvec3(
+                                pIndexData32Bit[i],
+                                pIndexData32Bit[i + 1],
+                                pIndexData32Bit[i + 2]);
+                        } else {
+                            triangle = glm::uvec3(
+                                pIndexData16Bit[i],
+                                pIndexData16Bit[i + 1],
+                                pIndexData16Bit[i + 2]);
+                        }
                         indices.emplace_back(triangle);
                     }
                 }

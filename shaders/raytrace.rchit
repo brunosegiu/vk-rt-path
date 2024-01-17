@@ -32,8 +32,8 @@ layout(binding = 5, set = 0, scalar) buffer Material_ {
 materials;
 layout(binding = 6, set = 0) uniform texture2D sceneTextures[];
 
-Vertex unpackInstanceVertex(const int intanceId) {
-    MeshDescription description = descriptions.values[intanceId];
+Vertex unpackInstanceVertex(const int instanceId) {
+    MeshDescription description = descriptions.values[instanceId];
     Indices indices = Indices(description.indexBufferAddress);
     Vertices vertices = Vertices(description.vertexBufferAddress);
 
@@ -101,7 +101,9 @@ void main() {
 
     rayPayload.radiance += material.emissive * rayPayload.color;
     rayPayload.color *= albedo;
-
+    if (length(rayPayload.color) < 0.05f) {
+        return;
+    }
     vec3 origin = vertex.position;
     float diffuseRatio = 1.0f - metallic;
     float transmissionRatio = material.transmission;
@@ -120,17 +122,19 @@ void main() {
         }
         float fresnelTerm = fresnel(gl_WorldRayDirectionEXT, vertex.normal, material.indexOfRefraction);
         
-        direction = reflect(gl_WorldRayDirectionEXT, vertex.normal);
         if (random01(rayPayload.randomSeed) <= fresnelTerm) {
+            origin += vertex.normal * 0.1;
             direction = reflect(gl_WorldRayDirectionEXT, vertex.normal);
         } else {
-            origin += -refrNormal * TMin;
+            origin += -refrNormal * 0.1;
             direction = refract(gl_WorldRayDirectionEXT, refrNormal, refrEta);
         }
     } else if (random01(rayPayload.randomSeed) <= diffuseRatio) {
+        origin += vertex.normal * 0.1;
         direction =
             sampleInCosineWeighedHemisphere(vertex.normal, rayPayload.pixelUV, random01(rayPayload.randomSeed));
     } else {
+        origin += vertex.normal * 0.1;
         direction = reflect(gl_WorldRayDirectionEXT, vertex.normal);
     }
 

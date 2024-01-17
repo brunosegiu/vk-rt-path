@@ -13,6 +13,10 @@ layout(binding = 2, set = 0) uniform CameraProperties {
     mat4 projInverse;
     uint framesSinceMoved;
     uint randomSeed;
+    uint currentMode;
+    uint currentTile;
+    uint tileSize;
+    uint tileCount;
 }
 cameraProperties;
 
@@ -35,23 +39,49 @@ vec3 srgbToLinear(vec3 sRGB) {
     return mix(higher, lower, cutoff);
 }
 
+vec2 getRandomPixelOffset(uvec2 pixelId, uint index) {
+    const int NUM_TAPS = 18;
+    const vec2 fTaps_Poisson[NUM_TAPS]
+        = vec2[NUM_TAPS]( vec2(-0.220147, 0.976896),
+                          vec2(-0.735514, 0.693436),
+                          vec2(-0.200476, 0.310353),
+                          vec2( 0.180822, 0.454146),
+                          vec2( 0.292754, 0.937414),
+                          vec2( 0.564255, 0.207879),
+                          vec2( 0.178031, 0.024583),
+                          vec2( 0.613912,-0.205936),
+                          vec2(-0.385540,-0.070092),
+                          vec2( 0.962838, 0.378319),
+                          vec2(-0.886362, 0.032122),
+                          vec2(-0.466531,-0.741458),
+                          vec2( 0.006773,-0.574796),
+                          vec2(-0.739828,-0.410584),
+                          vec2( 0.590785,-0.697557),
+                          vec2(-0.081436,-0.963262),
+                          vec2( 1.000000,-0.100160),
+                          vec2( 0.622430, 0.680868) );
+    return vec2(pixelId) + vec2(0.5) + fTaps_Poisson[index % NUM_TAPS] / 2.0;
+}
+
+
 void main() {
-    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-    const vec2 uv = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
-    const vec2 d = uv * 2.0 - 1.0;
+    const uvec2 pixelId = uvec2(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y + cameraProperties.currentTile * cameraProperties.tileSize);
+    const vec2 imageSize = vec2(gl_LaunchSizeEXT.x, cameraProperties.currentMode == ModeRealtime ? gl_LaunchSizeEXT.y : gl_LaunchSizeEXT.y * cameraProperties.tileCount);
 
     vec3 accumulatedRadiance = vec3(0.0f);
     uint randomSeed = cameraProperties.randomSeed;
-    float sampleWeight = 1 / float(RaysPerPixel);
+
+    const uint raysPerPixel = cameraProperties.currentMode == ModeRealtime ? RealtimeRaysPerPixel : FinalRenderRaysPerPixel;
+    float sampleWeight = 1 / float(raysPerPixel);
 
     const vec3 viewOrigin = (cameraProperties.viewInverse * vec4(0, 0, 0, 1)).xyz;
-    const vec4 target = cameraProperties.projInverse * vec4(d.x, d.y, 1, 1);
-    const vec3 viewDirection = (cameraProperties.viewInverse * vec4(normalize(target.xyz), 0)).xyz;
+    for (uint i = 0; i < raysPerPixel; i += 1) {
+        const vec2 pixelCenter = getRandomPixelOffset(pixelId, random(randomSeed));
+        const vec2 uv = pixelCenter / imageSize;
+        const vec2 d = uv * 2.0 - 1.0;
+        const vec4 target = cameraProperties.projInverse * vec4(d.x, d.y, 1, 1);
+        const vec3 viewDirection = (cameraProperties.viewInverse * vec4(normalize(target.xyz), 0)).xyz;
 
-    for (uint i = 0; i < RaysPerPixel; i += 1) {
-        vec3 origin = viewOrigin;
-        vec3 direction = viewDirection;
-        
         rayPayload.depth = 0;
         rayPayload.radiance = vec3(0.0f);
         rayPayload.color = vec3(1.0f);
@@ -65,17 +95,24 @@ void main() {
             DefaultSBTOffset,
             DefaultSBTStride,
             ColorMissIndex,
-            origin,
+            viewOrigin,
             TMin,
-            direction,
+            viewDirection,
             TMax,
             ColorPayloadIndex);
 
         accumulatedRadiance += rayPayload.radiance * sampleWeight;
     }
     accumulatedRadiance = accumulatedRadiance / (accumulatedRadiance + vec3(1.0));
-    float hysteresisFactor = 1.0f / (cameraProperties.framesSinceMoved + 1);
-    const vec3 previousFrameLight = srgbToLinear(imageLoad(image, ivec2(gl_LaunchIDEXT.xy)).rgb);
-    vec3 finalColor = mix(previousFrameLight, accumulatedRadiance, hysteresisFactor);
-    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(linearToSRGB(finalColor), 0.0));
+    
+    vec3 finalColor;
+    if (cameraProperties.currentMode == ModeRealtime) {
+        float hysteresisFactor = 1.0f / (cameraProperties.framesSinceMoved + 1);
+        const vec3 previousFrameRadiance = srgbToLinear(imageLoad(image, ivec2(pixelId)).rgb);
+        finalColor = mix(previousFrameRadiance, accumulatedRadiance, hysteresisFactor);
+    } else {
+        finalColor = accumulatedRadiance;
+    }
+
+    imageStore(image, ivec2(pixelId), vec4(linearToSRGB(finalColor), 0.0));
 }
