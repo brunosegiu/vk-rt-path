@@ -2,7 +2,7 @@
 
 Based on [vk-rt](https://github.com/brunosegiu/vk-rt)
 
-![image](https://github.com/brunosegiu/vk-rt-path/assets/38514393/a19b9227-ab57-4b6c-a1ba-9d46e9f27fee)
+![image](https://github.com/brunosegiu/vk-rt-path/assets/38514393/68190130-dc46-411c-8378-061575618efa)
 
 ## References:
 - [Nvidia raytacing tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)
